@@ -151,7 +151,7 @@ func (s *metadataServer) GetPersonCredits(ctx context.Context, req *pluginv1.Get
 		response.Credits = append(response.Credits, &pluginv1.PersonCredit{
 			ItemType: c.ItemType, ProviderId: c.TMDBID, ProviderIds: providerIDs,
 			Title: c.Title, OriginalTitle: c.OriginalTitle, ReleaseDate: c.ReleaseDate, Overview: c.Overview,
-			PosterPath: c.PosterPath, BackdropPath: c.BackdropPath, Department: c.Department,
+			PosterPath: tmdbCanonicalPath("poster", c.PosterPath), BackdropPath: tmdbCanonicalPath("backdrop", c.BackdropPath), Department: c.Department,
 			Character: c.Character, Job: c.Job, EpisodeCount: int32(c.EpisodeCount),
 			VoteAverage: c.VoteAverage, Popularity: c.Popularity, CreditId: c.CreditID,
 		})

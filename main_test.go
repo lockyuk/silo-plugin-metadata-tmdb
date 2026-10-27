@@ -656,3 +656,24 @@ func TestMetadataServer_SendsTMDBVotesForMoviesAndSeriesOnly(t *testing.T) {
 		}
 	})
 }
+
+func TestPersonCreditsCarryCanonicalArtworkPaths(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"cast":[{"id":550,"media_type":"movie","title":"Fight Club","poster_path":"/fc.jpg","backdrop_path":"/bd.jpg","character":"Tyler"}]}`))
+	}))
+	defer server.Close()
+	client := provider.NewClient(1000)
+	client.SetBaseURL(server.URL)
+	p := provider.NewProviderWithClient(client)
+	s := &metadataServer{runtime: &runtimeServer{provider: p}}
+	ids, _ := stringStruct(map[string]string{"tmdb": "287"})
+	resp, err := s.GetPersonCredits(context.Background(), &pluginv1.GetPersonCreditsRequest{ProviderIds: ids})
+	if err != nil || len(resp.GetCredits()) != 1 {
+		t.Fatalf("credits: %v %v", resp, err)
+	}
+	c := resp.GetCredits()[0]
+	if c.GetPosterPath() != "tmdb://poster/fc.jpg" || c.GetBackdropPath() != "tmdb://backdrop/bd.jpg" || c.GetProviderIds().GetFields()["tmdb"].GetStringValue() != "550" || c.GetItemType() != "movie" {
+		t.Fatalf("credit = %+v", c)
+	}
+}
