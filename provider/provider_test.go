@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -1540,5 +1541,71 @@ func TestGetTVMetadataCreditsCreators(t *testing.T) {
 	}
 	if len(result.People) != 3 || result.People[0].Kind != models.PersonKindActor {
 		t.Errorf("people = %+v, want the cast first, then the two creators", result.People)
+	}
+}
+
+func TestGetPersonCredits_MapsCastAndCrew(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/person/287/combined_credits":
+			if got := r.URL.Query().Get("language"); got != "en-US" {
+				t.Errorf("language = %q", got)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"cast": []map[string]any{
+					{"id": 550, "media_type": "movie", "title": "Fight Club", "original_title": "Fight Club", "release_date": "1999-10-15", "character": "Tyler Durden", "poster_path": "/fc.jpg", "credit_id": "c1", "popularity": 50.5},
+					{"id": 1399, "media_type": "tv", "name": "Friends", "original_name": "Friends", "first_air_date": "1994-09-22", "character": "Will Colbert", "episode_count": 1, "credit_id": "c2"},
+					{"id": 9, "media_type": "person", "name": "skipped"},
+				},
+				"crew": []map[string]any{
+					{"id": 7, "media_type": "movie", "title": "Produced", "release_date": "2010-01-01", "department": "Production", "job": "Producer", "credit_id": "c3"},
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	credits, err := newTMDBTestProvider(server.URL).GetPersonCredits(context.Background(), map[string]string{"tmdb": "287"}, "en")
+	if err != nil {
+		t.Fatalf("GetPersonCredits() error = %v", err)
+	}
+	want := []PersonCredit{
+		{ItemType: "movie", TMDBID: "550", Title: "Fight Club", OriginalTitle: "Fight Club", ReleaseDate: "1999-10-15", PosterPath: "/fc.jpg", Department: "Acting", Character: "Tyler Durden", Popularity: 50.5, CreditID: "c1"},
+		{ItemType: "series", TMDBID: "1399", Title: "Friends", OriginalTitle: "Friends", ReleaseDate: "1994-09-22", Department: "Acting", Character: "Will Colbert", EpisodeCount: 1, CreditID: "c2"},
+		{ItemType: "movie", TMDBID: "7", Title: "Produced", ReleaseDate: "2010-01-01", Department: "Production", Job: "Producer", CreditID: "c3"},
+	}
+	if !reflect.DeepEqual(credits, want) {
+		t.Fatalf("credits =\n%+v\nwant\n%+v", credits, want)
+	}
+}
+
+func TestGetPersonCredits_FindsPersonByIMDbIDAndSkipsUnknownPeople(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/find/nm0000093":
+			_ = json.NewEncoder(w).Encode(map[string]any{"person_results": []map[string]any{{"id": 287}}})
+		case "/person/287/combined_credits":
+			_ = json.NewEncoder(w).Encode(map[string]any{"cast": []map[string]any{{"id": 550, "media_type": "movie", "title": "Fight Club"}}})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	p := newTMDBTestProvider(server.URL)
+	credits, err := p.GetPersonCredits(context.Background(), map[string]string{"imdb": "nm0000093"}, "")
+	if err != nil || len(credits) != 1 || credits[0].TMDBID != "550" {
+		t.Fatalf("by IMDb ID: %+v, %v", credits, err)
+	}
+	if credits, err := p.GetPersonCredits(context.Background(), map[string]string{"tvdb": "1"}, ""); err != nil || credits != nil {
+		t.Fatalf("no usable ID: %+v, %v", credits, err)
 	}
 }

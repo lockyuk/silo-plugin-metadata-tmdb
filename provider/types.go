@@ -317,6 +317,36 @@ type PersonDetail struct {
 	ExternalIDs  *ExternalIDs `json:"external_ids"`
 }
 
+// CombinedCredits is /person/{id}/combined_credits: every movie and TV
+// credit, cast and crew.
+type CombinedCredits struct {
+	Cast []CombinedCredit `json:"cast"`
+	Crew []CombinedCredit `json:"crew"`
+}
+
+// CombinedCredit is one credit. Movies fill Title and ReleaseDate; TV shows
+// fill Name and FirstAirDate.
+type CombinedCredit struct {
+	ID            int     `json:"id"`
+	MediaType     string  `json:"media_type"`
+	Title         string  `json:"title"`
+	OriginalTitle string  `json:"original_title"`
+	ReleaseDate   string  `json:"release_date"`
+	Name          string  `json:"name"`
+	OriginalName  string  `json:"original_name"`
+	FirstAirDate  string  `json:"first_air_date"`
+	Overview      string  `json:"overview"`
+	PosterPath    string  `json:"poster_path"`
+	BackdropPath  string  `json:"backdrop_path"`
+	Character     string  `json:"character"`
+	Job           string  `json:"job"`
+	Department    string  `json:"department"`
+	EpisodeCount  int     `json:"episode_count"`
+	VoteAverage   float64 `json:"vote_average"`
+	Popularity    float64 `json:"popularity"`
+	CreditID      string  `json:"credit_id"`
+}
+
 // Image is a single image from TMDB.
 type Image struct {
 	FilePath    string  `json:"file_path"`

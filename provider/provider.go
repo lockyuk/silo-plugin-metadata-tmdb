@@ -493,6 +493,76 @@ func (p *Provider) GetPersonDetail(ctx context.Context, req metadata.PersonDetai
 	return result, nil
 }
 
+// PersonCredit is one title a person worked on, in one role.
+type PersonCredit struct {
+	ItemType      string // "movie" or "series"
+	TMDBID        string
+	Title         string
+	OriginalTitle string
+	ReleaseDate   string
+	Overview      string
+	PosterPath    string
+	BackdropPath  string
+	Department    string
+	Character     string
+	Job           string
+	EpisodeCount  int
+	VoteAverage   float64
+	Popularity    float64
+	CreditID      string
+}
+
+// GetPersonCredits returns a person's movie and TV credits, cast first. A
+// person without a TMDB or IMDb ID has none.
+func (p *Provider) GetPersonCredits(ctx context.Context, providerIDs map[string]string, language string) ([]PersonCredit, error) {
+	personID := providerIDs["tmdb"]
+	if personID == "" && providerIDs["imdb"] != "" {
+		id, err := p.findPersonByExternalID(ctx, providerIDs["imdb"], "imdb_id")
+		if err != nil || id == 0 {
+			return nil, err
+		}
+		personID = strconv.Itoa(id)
+	}
+	if personID == "" {
+		return nil, nil
+	}
+	id, err := strconv.Atoi(personID)
+	if err != nil {
+		return nil, fmt.Errorf("tmdb: invalid TMDB person ID %q: %w", personID, err)
+	}
+	credits, err := p.client.GetPersonCombinedCredits(ctx, id, tmdbLanguage(language))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PersonCredit, 0, len(credits.Cast)+len(credits.Crew))
+	for _, group := range []struct {
+		credits []CombinedCredit
+		cast    bool
+	}{{credits.Cast, true}, {credits.Crew, false}} {
+		for _, c := range group.credits {
+			credit := PersonCredit{
+				TMDBID: strconv.Itoa(c.ID), Overview: c.Overview, PosterPath: c.PosterPath, BackdropPath: c.BackdropPath,
+				EpisodeCount: c.EpisodeCount, VoteAverage: c.VoteAverage, Popularity: c.Popularity, CreditID: c.CreditID,
+			}
+			switch c.MediaType {
+			case "movie":
+				credit.ItemType, credit.Title, credit.OriginalTitle, credit.ReleaseDate = "movie", c.Title, c.OriginalTitle, c.ReleaseDate
+			case "tv":
+				credit.ItemType, credit.Title, credit.OriginalTitle, credit.ReleaseDate = "series", c.Name, c.OriginalName, c.FirstAirDate
+			default:
+				continue
+			}
+			if group.cast {
+				credit.Department, credit.Character = "Acting", c.Character
+			} else {
+				credit.Department, credit.Job = c.Department, c.Job
+			}
+			out = append(out, credit)
+		}
+	}
+	return out, nil
+}
+
 func (p *Provider) getMovieMetadata(ctx context.Context, id int, lang string) (*metadata.MetadataResult, error) {
 	movie, err := p.client.GetMovie(ctx, id, lang)
 	if err != nil {

@@ -133,6 +133,32 @@ func (s *metadataServer) GetPersonDetail(ctx context.Context, req *pluginv1.GetP
 	return &pluginv1.GetPersonDetailResponse{Person: person}, nil
 }
 
+func (s *metadataServer) GetPersonCredits(ctx context.Context, req *pluginv1.GetPersonCreditsRequest) (*pluginv1.GetPersonCreditsResponse, error) {
+	p, err := s.runtime.providerForRequest()
+	if err != nil {
+		return nil, err
+	}
+	credits, err := p.GetPersonCredits(ctx, stringMapFromStruct(req.GetProviderIds()), req.GetLanguage())
+	if err != nil {
+		return nil, err
+	}
+	response := &pluginv1.GetPersonCreditsResponse{Credits: make([]*pluginv1.PersonCredit, 0, len(credits))}
+	for _, c := range credits {
+		providerIDs, err := stringStruct(map[string]string{"tmdb": c.TMDBID})
+		if err != nil {
+			return nil, err
+		}
+		response.Credits = append(response.Credits, &pluginv1.PersonCredit{
+			ItemType: c.ItemType, ProviderId: c.TMDBID, ProviderIds: providerIDs,
+			Title: c.Title, OriginalTitle: c.OriginalTitle, ReleaseDate: c.ReleaseDate, Overview: c.Overview,
+			PosterPath: c.PosterPath, BackdropPath: c.BackdropPath, Department: c.Department,
+			Character: c.Character, Job: c.Job, EpisodeCount: int32(c.EpisodeCount),
+			VoteAverage: c.VoteAverage, Popularity: c.Popularity, CreditId: c.CreditID,
+		})
+	}
+	return response, nil
+}
+
 func (s *metadataServer) GetSeasons(ctx context.Context, req *pluginv1.GetSeasonsRequest) (*pluginv1.GetSeasonsResponse, error) {
 	p, err := s.runtime.providerForRequest()
 	if err != nil {

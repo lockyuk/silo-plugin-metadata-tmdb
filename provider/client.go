@@ -557,6 +557,16 @@ func (c *Client) GetPerson(ctx context.Context, id int, lang string) (*PersonDet
 	return &person, nil
 }
 
+// GetPersonCombinedCredits fetches every movie and TV credit of a person.
+func (c *Client) GetPersonCombinedCredits(ctx context.Context, id int, lang string) (*CombinedCredits, error) {
+	path := fmt.Sprintf("/person/%d/combined_credits?language=%s", id, url.QueryEscape(lang))
+	var credits CombinedCredits
+	if err := c.doGet(ctx, path, &credits); err != nil {
+		return nil, err
+	}
+	return &credits, nil
+}
+
 // GetSeason fetches a TV season with all episodes inline.
 func (c *Client) GetSeason(ctx context.Context, tvID, seasonNumber int, lang string) (*SeasonDetail, error) {
 	path := fmt.Sprintf("/tv/%d/season/%d?language=%s", tvID, seasonNumber, url.QueryEscape(lang))
