@@ -25,4 +25,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 )
 
-replace github.com/Silo-Server/silo-plugin-sdk => github.com/lockyuk/silo-plugin-sdk v0.30.1-0.20261027190633-3de6e332ef13
+replace github.com/Silo-Server/silo-plugin-sdk => github.com/lockyuk/spoel-plugin-sdk v0.30.1-0.20261027190633-3de6e332ef13
